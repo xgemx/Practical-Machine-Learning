@@ -1,0 +1,148 @@
+---
+title: "PML"
+author: "Eugene Gadeev"
+date: "24 ‡‚„ÛÒÚ‡ 2015 „."
+output: html_document
+---
+
+#Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement ñ a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+#Data 
+
+The training data for this project are available [here](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv).
+
+
+The test data are available [here](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv).
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment. 
+
+
+#Data Preprocessing
+```{r echo = TRUE, warning=FALSE, cache=TRUE}
+setwd('D:/Users/Eugene/Documents')
+
+train_data <- read.csv("pml-training.csv", na.strings=c("NA",""))
+
+test_data <- read.csv("pml-testing.csv", na.strings=c("NA",""))
+
+train_data <-train_data[,colSums(is.na(train_data)) == 0]
+test_data <-test_data[,colSums(is.na(test_data)) == 0]
+
+train_data   <-train_data[,-c(1:7)]
+test_data <-test_data[,-c(1:7)]
+
+dim(train_data)
+dim(test_data)
+
+```
+
+#Partitioning and Train Control
+Before executing a series of train functions the data needs to be partitioned, I am going with a 7 to 3 ratio. Addionally, the ìclasseî variable is set as a factor, and an empty numeric vector is created for use in calculating the out of sample error. The final part of this step is creating the train control. The train control will use the cross validation method, 12 folds or iterations, it will not save the data or return how much of the sampling data should be saved, nor save the hold-out predictions of each sample, no training log will be printed, preprocessing will be set to ìprinciple component analysisî and we will attempt to take advantage of parallel processing.
+```{r echo = TRUE, warning=FALSE, cache=TRUE}
+# partition the data
+training_dp <- createDataPartition(train_data$classe, p = 0.7, list = FALSE)
+training_part <- train_data[training_dp, ]
+testing_part <- train_data[-training_dp, ]
+
+# set classe as factor
+training_part$classe <- as.factor(training_part$classe)
+testing_part$classe <- as.factor(testing_part$classe)
+
+# create an empty numeric vector to calculate out of sample error against
+outOfSampleError <- numeric()
+
+# add some parameters for train control
+TC <- trainControl(method = "cv", number = 12, returnData=FALSE, returnResamp="none", savePredictions=FALSE, verboseIter=FALSE , preProcOptions="pca", allowParallel=TRUE)
+```
+#Look at the Data
+The variable ìclasseî contains 5 levels: A, B, C, D and E. A plot of the outcome variable will allow us to see the frequency of each levels in the subTraining data set and compare one another.
+```{r echo = TRUE, warning=FALSE, cache=TRUE}
+plot(training_part$classe, col="blue", main="Bar Plot of levels of the variable classe within the sub data set", xlab="classe levels", ylab="Frequency")
+```
+#Build Models
+Now we train the data. In order to get a wide range of results we will be using several types: bayesglm (Bayesian GLM), gbm (Generalized Boosted Regression), knn (K Nearest Neighbor), nb (Naive Bayes), nnet (Neural Net), rf (Random Forest), rpart (Recursive Partitioning and Regression Trees), svmLinear (Support Vector Machines Linear), svmRadial (Support Vector Machines Radial), and treebag (Bagged Classification and Regression Trees). Once each of the train methods finishes we will follow it with a prediction and accuracy function. Finally, before moving to the next train function we will calculate the out of sample error for that training method.
+```{r echo = TRUE, warning=FALSE, cache=TRUE}
+# train, predict, calculate accuracy and out of sample error
+bayes <- train(classe ~ ., method="bayesglm", data=training_part, trControl= TC)
+bayesglmPrediction <- predict(bayes, testing_part)
+bayesglmAccuracy <- sum(bayesglmPrediction == testing_part$classe) / length(bayesglmPrediction)
+bayesglmOutOfSampleError <- c(outOfSampleError, 1-bayesglmAccuracy)
+```
+```{r echo = TRUE, warning=FALSE, cache=TRUE}
+gbm <- train(classe ~ ., method="gbm", data=training_part, trControl= TC)
+gbmPrediction <- predict(gbm, testing_part)
+gbmAccuracy <- sum(gbmPrediction == testing_part$classe) / length(gbmPrediction)
+gbmOutOfSampleError <- c(outOfSampleError, 1-gbmAccuracy)
+```
+```{r echo = TRUE, warning=FALSE, cache=TRUE}
+knn <- train(classe ~ ., method="knn", data=training_part, trControl= TC)
+knnPrediction <- predict(knn, testing_part)
+knnAccuracy <- sum(knnPrediction == testing_part$classe) / length(knnPrediction)
+knnOutOfSampleError <- c(outOfSampleError, 1-knnAccuracy)
+```
+```{r echo = TRUE, warning=FALSE, cache=TRUE}
+nb <- train(classe ~ ., method="nb", data=training_part, trControl= TC)
+nbPrediction <- predict(nb, testing_part)
+nbAccuracy <- sum(nbPrediction == testing_part$classe) / length(nbPrediction)
+nbOutOfSampleError <- c(outOfSampleError, 1-nbAccuracy)
+```
+```{r echo = TRUE, warning=FALSE, cache=TRUE}
+nnet <- train(classe ~ ., method="nnet", data=training_part, trControl= TC)
+nnetPrediction <- predict(nnet, testing_part)
+nnetAccuracy <- sum(nnetPrediction == testing_part$classe) / length(nnetPrediction)
+nnetOutOfSampleError <- c(outOfSampleError, 1-nnetAccuracy)
+```
+```{r echo = TRUE, warning=FALSE, cache=TRUE}
+rf <- train(classe ~ ., method="rf", data=training_part, trControl= TC)
+rfPrediction <- predict(rf, testing_part)
+rfAccuracy <- sum(rfPrediction == testing_part$classe) / length(rfPrediction)
+rfOutOfSampleError <- c(outOfSampleError, 1-rfAccuracy)
+```
+```{r echo = TRUE, warning=FALSE, cache=TRUE}
+rpart <- train(classe ~ ., method="rpart", data=training_part, trControl= TC)
+rpartPrediction <- predict(rpart, testing_part)
+rpartAccuracy <- sum(rpartPrediction == testing_part$classe) / length(rpartPrediction)
+rpartOutOfSampleError <- c(outOfSampleError, 1-rpartAccuracy)
+```
+```{r echo = TRUE, warning=FALSE, cache=TRUE}
+svml <- train(classe ~ ., method="svmLinear", data=training_part, trControl= TC)
+svmlPrediction <- predict(svml, testing_part)
+svmlAccuracy <- sum(svmlPrediction == testing_part$classe) / length(svmlPrediction)
+svmlOutOfSampleError <- c(outOfSampleError, 1-svmlAccuracy)
+```
+```{r echo = TRUE, warning=FALSE, cache=TRUE}
+svmr <- train(classe ~ ., method="svmRadial", data=training_part, trControl= TC)
+svmrPrediction <- predict(svmr, testing_part)
+svmrAccuracy <- sum(svmrPrediction == testing_part$classe) / length(svmrPrediction)
+svmrOutOfSampleError <- c(outOfSampleError, 1-svmrAccuracy)
+```
+```{r echo = TRUE, warning=FALSE, cache=TRUE}
+treebag <- train(classe ~ ., method="treebag", data=training_part, trControl= TC)
+treebagPrediction <- predict(treebag, testing_part)
+treebagAccuracy <- sum(treebagPrediction == testing_part$classe) / length(treebagPrediction)
+treebagOutOfSampleError <- c(outOfSampleError, 1-treebagAccuracy)
+```
+#Results
+This is a values table, ranked by accuracy.
+```{r echo = TRUE, warning=FALSE, cache=TRUE}
+trainMethods <- c("Bayesian GLM", "Generalized Boosted Regression", "K Nearest Neighbor", "Naive Bayes", "Neural Net", "Random Forest", "Recursive Partitioning and Regression Trees", "Support Vector Machines Linear", "Support Vector Machines Radial", "Bagged Classification and Regression Trees")
+accuracy <- c(bayesglmAccuracy, gbmAccuracy, knnAccuracy, nbAccuracy, nnetAccuracy, rfAccuracy, rpartAccuracy, svmlAccuracy, svmrAccuracy, treebagAccuracy)
+outOfSampleError <- c(bayesglmOutOfSampleError, gbmOutOfSampleError, knnOutOfSampleError, nbOutOfSampleError, nnetOutOfSampleError, rfOutOfSampleError, rpartOutOfSampleError, svmlOutOfSampleError, svmrOutOfSampleError, treebagOutOfSampleError)
+
+results <- data.frame(trainMethods, accuracy, outOfSampleError)
+results[order(results$accuracy),]
+```
+#Cross-validation
+```{r echo = TRUE, warning=FALSE, cache=TRUE}
+predictCrossVal <- predict(rf, testing_part)
+confusionMatrix(testing_part$classe, predictCrossVal)
+```
+#Test Predictions
+```{r echo = TRUE, warning=FALSE, cache=TRUE}
+testingPrediction <- predict(rf, test_data)
+print(testingPrediction)
+```
+#Conclusion
+While Bagged Classification and Regression Trees, and perhaps Generalized Boosted Regression, would have also given us accurate predictions using this dataset, Random Forest tested with the highest overall accuracy. Using a variety of models it is possible to identify a training model that will accurately predict how well a person is performing a particular exercise using the information collected by Human Activity Recognition devices.
